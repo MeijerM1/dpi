@@ -13,16 +13,16 @@ import java.util.Properties;
  * @author Max Meijer
  * Created on 06/02/2019
  */
-public class Messenger {
+abstract class Messenger {
 
     private Connection connection; // to connect to the ActiveMQ
-    private Session session; // session for creating messages, producers and
+    Session session; // session for creating messages, producers and
 
     private Destination sendDestination; // reference to a queue/topic destination
     private Destination receiveDestination;
 
-    private MessageProducer producer; // for sending messages
-    private MessageConsumer consumer; // for receiving messages
+    MessageProducer producer; // for sending messages
+    MessageConsumer consumer; // for receiving messages
 
     private String queueName;
     private boolean isReceiver;
@@ -69,34 +69,5 @@ public class Messenger {
             e.printStackTrace();
         }
 
-    }
-
-    public Message createMessage(Serializable object) {
-        try {
-            return session.createObjectMessage(object);
-        } catch (JMSException e) {
-            e.printStackTrace();
-        }
-
-        return null;
-    }
-
-    public void sendMessage(Message message) {
-        try {
-            producer.send(message);
-            System.out.println("Message send with corr. id: " + message.getJMSCorrelationID());
-        } catch (JMSException e) {
-            System.out.println("Error sending message");
-            e.printStackTrace();
-        }
-    }
-
-    public void addReceiver(MessageListener listener) {
-        try {
-            consumer.setMessageListener(listener);
-        } catch (JMSException e) {
-            System.out.println();
-            e.printStackTrace();
-        }
     }
 }

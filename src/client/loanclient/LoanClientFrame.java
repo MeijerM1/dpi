@@ -7,8 +7,8 @@ import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.util.HashMap;
-import java.util.Map;
 
+import javax.ejb.Singleton;
 import javax.jms.JMSException;
 import javax.jms.Message;
 import javax.jms.MessageListener;
@@ -23,7 +23,8 @@ import javax.swing.JScrollPane;
 import javax.swing.JTextField;
 import javax.swing.border.EmptyBorder;
 
-import shared.messaging.Messenger;
+import shared.event.LoanReplyListener;
+import shared.gateway.LoanBrokerAppGateway;
 import shared.messaging.requestreply.RequestReply;
 import shared.model.loan.LoanReply;
 import shared.model.loan.LoanRequest;
@@ -44,10 +45,8 @@ public class LoanClientFrame extends JFrame {
     private JLabel lblNewLabel_1;
     private JTextField tfTime;
 
-    Messenger sender = new Messenger(false, "LoanBroker");
-    Messenger receiver = new Messenger(true, "LoanReply");
-
-    private Map<String, LoanRequest> requests = new HashMap<>();
+    private LoanBrokerAppGateway loanBrokerApp;
+    private HashMap<String, LoanRequest> requests = new HashMap<>();
 
     /**
      * Create the frame.
@@ -127,17 +126,11 @@ public class LoanClientFrame extends JFrame {
                 int time = Integer.parseInt(tfTime.getText());
 
                 LoanRequest request = new LoanRequest(ssn, amount, time);
-                listModel.addElement(new RequestReply<LoanRequest, LoanReply>(request, null));
 
-                Message msg = sender.createMessage(request);
-                try {
-                    msg.setJMSCorrelationID("SomeUniqueID");
-                    requests.put(msg.getJMSCorrelationID(), request);
-                } catch (JMSException e) {
-                    e.printStackTrace();
-                }
-                sender.sendMessage(msg);
+                RequestReply<LoanRequest, LoanReply> rr = new RequestReply<>(request, null);
+                listModel.addElement(rr);
 
+                loanBrokerApp.applyForLoan(request);
             }
         });
         GridBagConstraints gbc_btnQueue = new GridBagConstraints();
@@ -167,7 +160,7 @@ public class LoanClientFrame extends JFrame {
      * @param request
      * @return
      */
-    private RequestReply<LoanRequest, LoanReply> getRequestReply(LoanRequest request) {
+    public RequestReply<LoanRequest, LoanReply> getRequestReply(LoanRequest request) {
 
         for (int i = 0; i < listModel.getSize(); i++) {
             RequestReply<LoanRequest, LoanReply> rr = listModel.get(i);
@@ -179,24 +172,25 @@ public class LoanClientFrame extends JFrame {
         return null;
     }
 
+    public void add(LoanRequest request, LoanReply reply) {
+
+        RequestReply rr = getRequestReply(request);
+
+        rr.setReply(reply);
+
+        repaint();
+    }
+
     private void setup() {
-        receiver.addReceiver(new MessageListener() {
+        java.awt.Toolkit.getDefaultToolkit().beep();
+
+        loanBrokerApp = new LoanBrokerAppGateway("ClientBroker", "BrokerClient");
+
+        loanBrokerApp.addLoanReplyListener(new LoanReplyListener() {
             @Override
-            public void onMessage(Message message) {
-                ObjectMessage object = (ObjectMessage) message;
-
-                try {
-                    LoanReply reply = (LoanReply) object.getObject();
-
-                    LoanRequest request = requests.get(message.getJMSCorrelationID());
-
-                    getRequestReply(request).setReply(reply);
-
-                    repaint();
-
-                } catch (JMSException e) {
-                    e.printStackTrace();
-                }
+            public void onLoanReply(LoanRequest request ,LoanReply reply) {
+                System.out.println("Received loan reply: " + reply.toString());
+                add(request, reply);
             }
         });
     }

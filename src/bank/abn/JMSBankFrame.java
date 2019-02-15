@@ -1,6 +1,7 @@
 package bank.abn;
 
-import shared.messaging.Messenger;
+import shared.event.BankRequestListener;
+import shared.gateway.LoanBrokerAppGateway;
 import shared.messaging.requestreply.RequestReply;
 import shared.model.bank.BankInterestReply;
 import shared.model.bank.BankInterestRequest;
@@ -11,10 +12,7 @@ import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.util.HashMap;
-import java.util.Map;
 
-import javax.jms.*;
 import javax.swing.DefaultListModel;
 import javax.swing.JButton;
 import javax.swing.JFrame;
@@ -35,10 +33,7 @@ public class JMSBankFrame extends JFrame {
 	private JTextField tfReply;
 	private DefaultListModel<RequestReply<BankInterestRequest, BankInterestReply>> listModel = new DefaultListModel<RequestReply<BankInterestRequest, BankInterestReply>>();
 
-	Messenger interestReceiver = new Messenger(true, "InterestBroker");
-	Messenger replySender = new Messenger(false, "InterestReply");
-
-	private Map<BankInterestRequest, String> requests = new HashMap<>();
+	LoanBrokerAppGateway loanBrokerAppGateway;
 
 	/**
 	 * Launch the application.
@@ -115,13 +110,7 @@ public class JMSBankFrame extends JFrame {
 					contentPane.repaint();
 
 					// TODO: sent JMS message with the reply to Loan Broker
-					Message msg = replySender.createMessage(reply);
-					try {
-						msg.setJMSCorrelationID(requests.get(rr.getRequest()));
-					} catch (JMSException e1) {
-						e1.printStackTrace();
-					}
-					replySender.sendMessage(msg);
+					loanBrokerAppGateway.sendBankInterestReply(rr.getRequest(), reply);
 				}
 			}
 		});
@@ -133,22 +122,12 @@ public class JMSBankFrame extends JFrame {
 	}
 
 	private void setup() {
-		interestReceiver.addReceiver(new MessageListener() {
+		loanBrokerAppGateway = new LoanBrokerAppGateway("BankBroker", "BrokerBank");
+
+		loanBrokerAppGateway.addBankRequestListener(new BankRequestListener() {
 			@Override
-			public void onMessage(Message message) {
-				System.out.println("Received message: " + message);
-
-				ObjectMessage object = (ObjectMessage) message;
-
-				try {
-					BankInterestRequest request = (BankInterestRequest) object.getObject();
-
-					requests.put(request, message.getJMSCorrelationID());
-					add(request);
-
-				} catch (JMSException e) {
-					e.printStackTrace();
-				}
+			public void onBankRequest(BankInterestRequest request, String correlation) {
+				add(request);
 			}
 		});
 	}

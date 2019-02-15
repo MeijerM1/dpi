@@ -4,13 +4,7 @@ import java.awt.EventQueue;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
-import java.util.HashMap;
-import java.util.Map;
 
-import javax.jms.JMSException;
-import javax.jms.Message;
-import javax.jms.MessageListener;
-import javax.jms.ObjectMessage;
 import javax.swing.DefaultListModel;
 import javax.swing.JFrame;
 import javax.swing.JList;
@@ -18,7 +12,10 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.border.EmptyBorder;
 
-import shared.messaging.Messenger;
+import shared.event.BankReplyListener;
+import shared.event.LoanRequestListener;
+import shared.gateway.BankAppGateway;
+import shared.gateway.LoanClientAppGateway;
 import shared.model.bank.BankInterestReply;
 import shared.model.bank.BankInterestRequest;
 import shared.model.loan.LoanReply;
@@ -34,13 +31,8 @@ public class LoanBrokerFrame extends JFrame {
 	private DefaultListModel<loanbroker.JListLine> listModel = new DefaultListModel<loanbroker.JListLine>();
 	private JList<loanbroker.JListLine> list;
 
-	Messenger loanReceiver = new Messenger(true, "LoanBroker");
-	Messenger loanSender = new Messenger(false, "LoanReply");
-
-	Messenger interestSender = new Messenger(false, "InterestBroker");
-	Messenger interestReceiver = new Messenger(true, "InterestReply");
-
-	private Map<String, LoanRequest> requests = new HashMap<>();
+	public LoanClientAppGateway loanClientGateway;
+	public BankAppGateway bankAppGateway;
 
 	public static void main(String[] args) {
 		EventQueue.invokeLater(new Runnable() {
@@ -97,7 +89,7 @@ public class LoanBrokerFrame extends JFrame {
 	     }
 	     
 	     return null;
-	   }
+	}
 	
 	public void add(LoanRequest loanRequest){		
 		listModel.addElement(new loanbroker.JListLine(loanRequest));
@@ -121,47 +113,40 @@ public class LoanBrokerFrame extends JFrame {
 	}
 
 	public void setup() {
-		loanReceiver.addReceiver(new MessageListener() {
+		loanClientGateway = new LoanClientAppGateway(
+				"BrokerClient",
+				"ClientBroker");
+		bankAppGateway = new BankAppGateway (
+				"BrokerBank",
+				"BankBroker");
+
+		loanClientGateway.addLoanRequestListener(new LoanRequestListener() {
 			@Override
-			public void onMessage(Message message) {
-				System.out.println("Received message: " + message);
-				ObjectMessage object = (ObjectMessage) message;
-				try {
-					LoanRequest request = (LoanRequest) object.getObject();
-					add(request);
+			public void onLoanRequest(LoanRequest loanRequest, String correlation) {
+				add(loanRequest);
 
-					BankInterestRequest bankRequest = new BankInterestRequest(request.getAmount(), request.getTime());
-					add(request, bankRequest);
+				BankInterestRequest request = new BankInterestRequest();
+				request.setAmount(loanRequest.getAmount());
+				request.setTime(loanRequest.getTime());
 
-					requests.put(message.getJMSCorrelationID(), request);
+				add(loanRequest, request);
 
-					Message msg = interestSender.createMessage(bankRequest);
-					msg.setJMSCorrelationID(message.getJMSCorrelationID());
-
-					interestSender.sendMessage(msg);
-				} catch (JMSException e) {
-					e.printStackTrace();
-				}
+				bankAppGateway.sendBankRequest(loanRequest, request, correlation);
 			}
 		});
 
-		interestReceiver.addReceiver(new MessageListener() {
+		bankAppGateway.addReplyListneer(new BankReplyListener() {
 			@Override
-			public void onMessage(Message message) {
-				ObjectMessage object = (ObjectMessage) message;
+			public void onBankReply(LoanRequest request, BankInterestReply reply, String correlation) {
+				System.out.println("Received bankreply: " +  reply.toString());
 
-				try {
-					BankInterestReply reply = (BankInterestReply) object.getObject();
-					LoanReply loanReply = new LoanReply(reply.getInterest(), reply.getQuoteId());
+				add(request, reply);
 
-					add(requests.get(message.getJMSCorrelationID()) ,reply);
+				LoanReply loanReply = new LoanReply();
+				loanReply.setInterest(reply.getInterest());
+				loanReply.setQuoteID(reply.getQuoteId());
 
-					Message msg = loanSender.createMessage(loanReply);
-					msg.setJMSCorrelationID(message.getJMSCorrelationID());
-					loanSender.sendMessage(msg);
-				} catch (JMSException e) {
-					e.printStackTrace();
-				}
+				loanClientGateway.sendLoanReply(loanReply, correlation);
 			}
 		});
 	}
