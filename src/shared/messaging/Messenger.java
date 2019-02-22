@@ -64,7 +64,6 @@ abstract class Messenger {
             }
 
 
-
         } catch (NamingException | JMSException e) {
             e.printStackTrace();
         }

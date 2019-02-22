@@ -23,7 +23,7 @@ import javax.swing.JScrollPane;
 import javax.swing.JTextField;
 import javax.swing.border.EmptyBorder;
 
-public class JMSBankFrame extends JFrame {
+public class JMSBankFrameAbn extends JFrame {
 
 	/**
 	 * 
@@ -42,7 +42,7 @@ public class JMSBankFrame extends JFrame {
 		EventQueue.invokeLater(new Runnable() {
 			public void run() {
 				try {
-					JMSBankFrame frame = new JMSBankFrame();
+					JMSBankFrameAbn frame = new JMSBankFrameAbn();
 					frame.setVisible(true);
 				} catch (Exception e) {
 					e.printStackTrace();
@@ -54,7 +54,7 @@ public class JMSBankFrame extends JFrame {
 	/**
 	 * Create the frame.
 	 */
-	public JMSBankFrame() {
+	public JMSBankFrameAbn() {
 		setup();
 		setTitle("JMS Bank - ABN AMRO");
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -122,7 +122,7 @@ public class JMSBankFrame extends JFrame {
 	}
 
 	private void setup() {
-		loanBrokerAppGateway = new LoanBrokerAppGateway("BankBroker", "BrokerBank");
+		loanBrokerAppGateway = new LoanBrokerAppGateway("BankBroker", "BrokerAbnBank");
 
 		loanBrokerAppGateway.addBankRequestListener(new BankRequestListener() {
 			@Override

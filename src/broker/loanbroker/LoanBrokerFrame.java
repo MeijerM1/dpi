@@ -23,9 +23,6 @@ import shared.model.loan.LoanRequest;
 
 public class LoanBrokerFrame extends JFrame {
 
-	/**
-	 * 
-	 */
 	private static final long serialVersionUID = 1L;
 	private JPanel contentPane;
 	private DefaultListModel<loanbroker.JListLine> listModel = new DefaultListModel<loanbroker.JListLine>();
@@ -46,7 +43,6 @@ public class LoanBrokerFrame extends JFrame {
 			}
 		});
 	}
-
 
 	/**
 	 * Create the frame.

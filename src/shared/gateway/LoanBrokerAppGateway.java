@@ -29,6 +29,7 @@ public class LoanBrokerAppGateway {
     private MessageSenderGateway sender;
     private IdGenerator generator;
     private HashMap<String, LoanRequest> loanRequests = new HashMap<>();
+    private HashMap<String, Integer> aggregations = new HashMap<>();
     private HashMap<BankInterestRequest, String> bankRequests = new HashMap<>();
 
     private List<BankRequestListener> bankListeners = new ArrayList<>();
@@ -54,7 +55,7 @@ public class LoanBrokerAppGateway {
             Serializable object = obj.getObject();
             if (object instanceof BankInterestRequest) {
                 BankInterestRequest request = (BankInterestRequest) object;
-                onBankRequest(request, message.getJMSCorrelationID());
+                onBankRequest(request, message.getJMSCorrelationID(), message.getIntProperty("aggregation"));
             } else if(object instanceof LoanReply) {
                 LoanReply reply = (LoanReply) object;
                 onLoanReplyArrived(reply, message.getJMSCorrelationID());
@@ -85,8 +86,9 @@ public class LoanBrokerAppGateway {
         sender.sendMessage(message);
     }
 
-    private void onBankRequest(BankInterestRequest request, String correlation) {
+    private void onBankRequest(BankInterestRequest request, String correlation, int aggregation) {
         bankRequests.put(request, correlation);
+        aggregations.put(correlation, aggregation);
 
         for (BankRequestListener listener :
                 bankListeners) {
@@ -105,10 +107,12 @@ public class LoanBrokerAppGateway {
 
     public void sendBankInterestReply(BankInterestRequest request, BankInterestReply reply) {
         String correlation = bankRequests.get(request);
+        int aggregation = aggregations.get(correlation);
 
         Message message = sender.createMessage(reply);
 
         try {
+            message.setIntProperty("aggregation", aggregation);
             message.setJMSCorrelationID(correlation);
         } catch (JMSException e) {
             e.printStackTrace();
